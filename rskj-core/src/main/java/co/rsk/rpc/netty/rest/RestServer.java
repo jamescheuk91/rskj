@@ -15,10 +15,10 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package co.rsk.rpc.netty.http;
+package co.rsk.rpc.netty.rest;
 
 import co.rsk.config.InternalService;
-import co.rsk.rpc.netty.http.dto.ModuleConfigDTO;
+import co.rsk.rpc.netty.rest.dto.RestModuleConfigDTO;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.EventLoopGroup;
@@ -27,17 +27,15 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class HttpServer implements InternalService {
-    private static final Logger logger = LoggerFactory.getLogger(HttpServer.class);
+public class RestServer implements InternalService {
+    private static final Logger logger = LoggerFactory.getLogger(RestServer.class);
 
     private int inetPort;
-    private ModuleConfigDTO moduleConfigDTO;
+    private RestModuleConfigDTO restModuleConfigDTO;
 
-    private HttpServer() { }
-
-    public HttpServer(int inetPort, ModuleConfigDTO moduleConfigDTO) {
+    public RestServer(int inetPort, RestModuleConfigDTO restModuleConfigDTO) {
         this.inetPort = inetPort;
-        this.moduleConfigDTO = moduleConfigDTO;
+        this.restModuleConfigDTO = restModuleConfigDTO;
     }
 
     @Override
@@ -51,7 +49,7 @@ public class HttpServer implements InternalService {
             ServerBootstrap serverBootstrap = new ServerBootstrap();
             serverBootstrap.group(bossGroup, workerGroup)
                     .channel(NioServerSocketChannel.class)
-                    .childHandler(new HttpServerInitializer(moduleConfigDTO));
+                    .childHandler(new RestServerInitializer(restModuleConfigDTO));
 
             logger.info("HTTP Server Ready");
 

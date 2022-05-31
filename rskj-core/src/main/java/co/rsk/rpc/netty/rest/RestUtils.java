@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package co.rsk.rpc.netty.http;
+package co.rsk.rpc.netty.rest;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -29,13 +29,13 @@ import java.nio.charset.StandardCharsets;
 import static io.netty.handler.codec.http.HttpHeaders.Names.CONTENT_LENGTH;
 import static io.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TYPE;
 
-public class HttpUtils {
+public class RestUtils {
 
     private static final String DEFAULT_CONTENT_TYPE = "text/plain;charset=UTF-8";
     private static final HttpVersion DEFAULT_HTTP_VERSION = HttpVersion.HTTP_1_1;
     private static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
 
-    private HttpUtils() {}
+    private RestUtils() {}
 
     public static DefaultFullHttpResponse createResponse(String content) {
         return createResponse(content, HttpResponseStatus.OK);

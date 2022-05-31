@@ -76,8 +76,8 @@ import co.rsk.rpc.modules.trace.TraceModuleImpl;
 import co.rsk.rpc.modules.txpool.TxPoolModule;
 import co.rsk.rpc.modules.txpool.TxPoolModuleImpl;
 import co.rsk.rpc.netty.*;
-import co.rsk.rpc.netty.http.HttpServer;
-import co.rsk.rpc.netty.http.dto.ModuleConfigDTO;
+import co.rsk.rpc.netty.rest.RestServer;
+import co.rsk.rpc.netty.rest.dto.RestModuleConfigDTO;
 import co.rsk.scoring.PeerScoring;
 import co.rsk.scoring.PeerScoringManager;
 import co.rsk.scoring.PeerScoringReporterService;
@@ -249,7 +249,7 @@ public class RskContext implements NodeContext, NodeBootstrapper {
     private ReceivedTxSignatureCache receivedTxSignatureCache;
     private BlockTxSignatureCache blockTxSignatureCache;
     private PeerScoringReporterService peerScoringReporterService;
-    private HttpServer httpServer;
+    private RestServer restServer;
 
     private volatile boolean closed;
 
@@ -1104,14 +1104,14 @@ public class RskContext implements NodeContext, NodeBootstrapper {
         return peerScoringReporterService;
     }
 
-    public synchronized HttpServer getHttpServer() {
+    public synchronized RestServer getHttpServer() {
         checkIfNotClosed();
 
-        if (httpServer == null) {
-            this.httpServer = buildHttpServer();
+        if (restServer == null) {
+            this.restServer = buildHttpServer();
         }
 
-        return httpServer;
+        return restServer;
     }
 
     public boolean isClosed() {
@@ -1401,10 +1401,10 @@ public class RskContext implements NodeContext, NodeBootstrapper {
     }
 
     @Nullable
-    protected synchronized HttpServer buildHttpServer() {
+    protected synchronized RestServer buildHttpServer() {
         RskSystemProperties config = getRskSystemProperties();
-        ModuleConfigDTO moduleConfigDTO = new ModuleConfigDTO(config.isHealthCheckModuleEnabled());
-        return new HttpServer(config.getHttpServerPort(), moduleConfigDTO);
+        RestModuleConfigDTO restModuleConfigDTO = new RestModuleConfigDTO(config.isHealthCheckModuleEnabled());
+        return new RestServer(config.getHttpServerPort(), restModuleConfigDTO);
     }
 
     /***** Private Methods ********************************************************************************************/

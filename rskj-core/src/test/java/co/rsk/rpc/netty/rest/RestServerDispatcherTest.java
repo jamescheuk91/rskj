@@ -15,9 +15,9 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package co.rsk.rpc.netty.http;
+package co.rsk.rpc.netty.rest;
 
-import co.rsk.rpc.netty.http.modules.HealthCheckModule;
+import co.rsk.rpc.netty.rest.modules.HealthCheckModule;
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.HttpMethod;
@@ -27,35 +27,19 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 
-public class HttpServerDispatcherTest {
+public class RestServerDispatcherTest {
 
-    private HttpServerDispatcher httpServerDispatcher;
+    private RestServerDispatcher restServerDispatcher;
 
     @Before
     public void setup() {
-        httpServerDispatcher = new HttpServerDispatcher(null);
-    }
-
-    @Test
-    public void testDispatch_faviconUri_returnsNull() throws URISyntaxException {
-        // Given
-        String uri = "/favicon.ico";
-        HttpRequest requestMock = mock(HttpRequest.class);
-        doReturn(uri).when(requestMock).getUri();
-
-        // When
-        DefaultFullHttpResponse response = httpServerDispatcher.dispatch(requestMock);
-
-        // Then
-        Assert.assertNull(response);
+        restServerDispatcher = new RestServerDispatcher(null);
     }
 
     @Test
@@ -66,7 +50,7 @@ public class HttpServerDispatcherTest {
         doReturn(uri).when(requestMock).getUri();
 
         // When
-        DefaultFullHttpResponse response = httpServerDispatcher.dispatch(requestMock);
+        DefaultFullHttpResponse response = restServerDispatcher.dispatch(requestMock);
 
         // Then
         Assert.assertNotNull(response);
@@ -98,7 +82,7 @@ public class HttpServerDispatcherTest {
 //        healthCheckModuleField.set(httpServerDispatcher, healthCheckModuleField);
 
         // When
-        DefaultFullHttpResponse response = httpServerDispatcher.dispatch(requestMock);
+        DefaultFullHttpResponse response = restServerDispatcher.dispatch(requestMock);
 
         // Then
         Assert.assertNull(response);

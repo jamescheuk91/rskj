@@ -15,10 +15,10 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package co.rsk.rpc.netty.http;
+package co.rsk.rpc.netty.rest;
 
-import co.rsk.rpc.netty.http.dto.ModuleConfigDTO;
-import co.rsk.rpc.netty.http.modules.HealthCheckModule;
+import co.rsk.rpc.netty.rest.dto.RestModuleConfigDTO;
+import co.rsk.rpc.netty.rest.modules.HealthCheckModule;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponseStatus;
@@ -28,16 +28,14 @@ import org.slf4j.LoggerFactory;
 import java.net.URI;
 import java.net.URISyntaxException;
 
-public class HttpServerDispatcher {
-    private static final Logger logger = LoggerFactory.getLogger(HttpServerDispatcher.class);
+public class RestServerDispatcher {
+    private static final Logger logger = LoggerFactory.getLogger(RestServerDispatcher.class);
 
-    private ModuleConfigDTO moduleConfigDTO;
+    private RestModuleConfigDTO restModuleConfigDTO;
     private HealthCheckModule healthCheckModule;
 
-    private HttpServerDispatcher() { }
-
-    public HttpServerDispatcher(ModuleConfigDTO moduleConfigDTO) {
-        this.moduleConfigDTO = moduleConfigDTO;
+    public RestServerDispatcher(RestModuleConfigDTO restModuleConfigDTO) {
+        this.restModuleConfigDTO = restModuleConfigDTO;
         initModules();
     }
 
@@ -45,27 +43,22 @@ public class HttpServerDispatcher {
 
         String uri = new URI(request.getUri()).getPath();
 
-        if ("/favicon.ico".equals(uri)) {
-            logger.info("Favicon request received. Dispatching omitted.");
-            return null;
-        }
-
         if (uri.startsWith("/health-check")) {
-            if (!moduleConfigDTO.isHealthCheckModuleEnabled()) {
+            if (!restModuleConfigDTO.isHealthCheckModuleEnabled()) {
                 logger.info("Health check request received but module is disabled.");
-                return HttpUtils.createResponse("Not Found", HttpResponseStatus.NOT_FOUND);
+                return RestUtils.createResponse("Not Found", HttpResponseStatus.NOT_FOUND);
             }
             logger.info("Health check request received. Dispatching.");
             return healthCheckModule.processRequest(uri, request.getMethod());
         }
 
         logger.info("Handler Not Found.");
-        return HttpUtils.createResponse("Not Found", HttpResponseStatus.NOT_FOUND);
+        return RestUtils.createResponse("Not Found", HttpResponseStatus.NOT_FOUND);
 
     }
 
     private void initModules() {
-        if (moduleConfigDTO.isHealthCheckModuleEnabled()) {
+        if (restModuleConfigDTO.isHealthCheckModuleEnabled()) {
             healthCheckModule = new HealthCheckModule();
         }
     }

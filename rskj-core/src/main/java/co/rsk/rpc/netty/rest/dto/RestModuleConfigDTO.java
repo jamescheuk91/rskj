@@ -15,21 +15,18 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package co.rsk.rpc.netty.http.modules;
+package co.rsk.rpc.netty.rest.dto;
 
-import co.rsk.rpc.netty.http.HttpUtils;
-import io.netty.handler.codec.http.DefaultFullHttpResponse;
-import io.netty.handler.codec.http.HttpMethod;
+public class RestModuleConfigDTO {
 
-public class HealthCheckModule implements HttpModule {
+    private boolean healthCheckModuleEnabled;
 
-    @Override
-    public DefaultFullHttpResponse processRequest(String uri, HttpMethod method) {
-        if ("/health-check/ping".equals(uri) && method.equals(HttpMethod.GET)) {
-            return HttpUtils.createResponse("pong");
-        }
+    public RestModuleConfigDTO(boolean healthCheckModuleEnabled) {
+        this.healthCheckModuleEnabled = healthCheckModuleEnabled;
+    }
 
-        return null;
+    public boolean isHealthCheckModuleEnabled() {
+        return healthCheckModuleEnabled;
     }
 
 }

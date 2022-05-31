@@ -15,29 +15,27 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package co.rsk.rpc.netty.http;
+package co.rsk.rpc.netty.rest;
 
-import co.rsk.rpc.netty.http.dto.ModuleConfigDTO;
+import co.rsk.rpc.netty.rest.dto.RestModuleConfigDTO;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.http.HttpServerCodec;
 
-public class HttpServerInitializer extends ChannelInitializer<SocketChannel> {
+public class RestServerInitializer extends ChannelInitializer<SocketChannel> {
 
-    private ModuleConfigDTO moduleConfigDTO;
+    private RestModuleConfigDTO restModuleConfigDTO;
 
-    private HttpServerInitializer() { }
-
-    public HttpServerInitializer(ModuleConfigDTO moduleConfigDTO) {
-        this.moduleConfigDTO = moduleConfigDTO;
+    public RestServerInitializer(RestModuleConfigDTO restModuleConfigDTO) {
+        this.restModuleConfigDTO = restModuleConfigDTO;
     }
 
     @Override
     protected void initChannel(SocketChannel ch) {
         ChannelPipeline pipeline = ch.pipeline();
         pipeline.addLast("httpServerCodec", new HttpServerCodec());
-        pipeline.addLast("httpServerHandler", new HttpServerHandler(moduleConfigDTO));
+        pipeline.addLast("httpServerHandler", new RestServerHandler(restModuleConfigDTO));
     }
 
 }

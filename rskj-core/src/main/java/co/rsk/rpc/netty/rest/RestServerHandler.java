@@ -15,24 +15,22 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package co.rsk.rpc.netty.http;
+package co.rsk.rpc.netty.rest;
 
-import co.rsk.rpc.netty.http.dto.ModuleConfigDTO;
+import co.rsk.rpc.netty.rest.dto.RestModuleConfigDTO;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class HttpServerHandler extends SimpleChannelInboundHandler<HttpObject> {
-    private static final Logger logger = LoggerFactory.getLogger(HttpServerHandler.class);
+public class RestServerHandler extends SimpleChannelInboundHandler<HttpObject> {
+    private static final Logger logger = LoggerFactory.getLogger(RestServerHandler.class);
 
-    private HttpServerDispatcher dispatcher;
+    private RestServerDispatcher dispatcher;
 
-    private HttpServerHandler() { }
-
-    public HttpServerHandler(ModuleConfigDTO moduleConfigDTO) {
-        this.dispatcher = new HttpServerDispatcher(moduleConfigDTO);
+    public RestServerHandler(RestModuleConfigDTO restModuleConfigDTO) {
+        this.dispatcher = new RestServerDispatcher(restModuleConfigDTO);
     }
 
     @Override
