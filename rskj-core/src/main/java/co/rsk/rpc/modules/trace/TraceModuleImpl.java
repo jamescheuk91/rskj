@@ -24,7 +24,7 @@ import co.rsk.core.bc.BlockExecutor;
 import co.rsk.rpc.ExecutionBlockRetriever;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.ethereum.core.Block;
+import org.ethereum.core.Block;;
 import org.ethereum.core.Blockchain;
 import org.ethereum.core.Transaction;
 import org.ethereum.db.BlockStore;
