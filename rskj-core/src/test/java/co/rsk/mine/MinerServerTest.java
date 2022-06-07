@@ -26,23 +26,38 @@ import co.rsk.config.TestSystemProperties;
 import co.rsk.core.BlockDifficulty;
 import co.rsk.core.Coin;
 import co.rsk.core.DifficultyCalculator;
+import co.rsk.core.RskAddress;
+import co.rsk.core.Wallet;
+import co.rsk.core.WalletFactory;
+import co.rsk.core.bc.BlockChainImpl;
 import co.rsk.core.bc.BlockExecutor;
 import co.rsk.core.bc.BlockResult;
 import co.rsk.core.bc.MiningMainchainView;
+import co.rsk.core.bc.TransactionPoolImpl;
 import co.rsk.crypto.Keccak256;
 import co.rsk.db.RepositoryLocator;
+import co.rsk.net.BlockProcessor;
+import co.rsk.net.NodeBlockProcessor;
 import co.rsk.remasc.RemascTransaction;
+import co.rsk.test.World;
+import co.rsk.test.builders.AccountBuilder;
+import co.rsk.test.builders.TransactionBuilder;
+import co.rsk.trie.TrieStore;
 import co.rsk.validators.BlockUnclesValidationRule;
 import co.rsk.validators.ProofOfWorkRule;
 import org.ethereum.TestUtils;
 import org.ethereum.core.*;
 import org.ethereum.db.BlockStore;
+import org.ethereum.db.ReceiptStore;
+import org.ethereum.facade.Ethereum;
 import org.ethereum.facade.EthereumImpl;
+import org.ethereum.listener.CompositeEthereumListener;
 import org.ethereum.rpc.TypeConverter;
 import org.ethereum.util.BuildInfo;
 import org.ethereum.util.RLP;
 import org.ethereum.util.RLPList;
 import org.ethereum.util.RskTestFactory;
+import org.ethereum.util.TransactionFactoryHelper;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -60,6 +75,7 @@ import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import static org.powermock.api.mockito.PowerMockito.when;
 
 /**
  * Created by adrian.eidelman on 3/16/2016.
@@ -67,7 +83,8 @@ import static org.mockito.Mockito.*;
 public class MinerServerTest extends ParameterizedNetworkUpgradeTest {
 
     private final DifficultyCalculator difficultyCalculator;
-    private MiningMainchainView blockchain;
+    private MiningMainchainView miningMainchainView;
+    private Blockchain standardBlockchain;
     private RepositoryLocator repositoryLocator;
     private BlockStore blockStore;
     private TransactionPool transactionPool;
@@ -75,7 +92,11 @@ public class MinerServerTest extends ParameterizedNetworkUpgradeTest {
     private BlockExecutor blockExecutor;
     private MinimumGasPriceCalculator minimumGasPriceCalculator;
     private MinerUtils minerUtils;
-
+    private ReceivedTxSignatureCache signatureCache;
+    private Repository repository;
+    private CompositeEthereumListener compositeEthereumListener;
+    private RskTestFactory rskTestContext;
+    
     public MinerServerTest(TestSystemProperties config) {
         super(config);
         this.difficultyCalculator = new DifficultyCalculator(config.getActivationConfig(), config.getNetworkConstants());
@@ -83,18 +104,34 @@ public class MinerServerTest extends ParameterizedNetworkUpgradeTest {
 
     @Before
     public void setUp() {
-        RskTestFactory factory = new RskTestFactory(config) {
+        rskTestContext = new RskTestFactory(config) {
             @Override
             protected RepositoryLocator buildRepositoryLocator() {
                 return Mockito.spy(super.buildRepositoryLocator());
             }
         };
-        blockchain = factory.getMiningMainchainView();
-        repositoryLocator = factory.getRepositoryLocator();
-        blockStore = factory.getBlockStore();
-        transactionPool = factory.getTransactionPool();
-        blockFactory = factory.getBlockFactory();
-        blockExecutor = factory.getBlockExecutor();
+        miningMainchainView = rskTestContext.getMiningMainchainView();
+        repositoryLocator = rskTestContext.getRepositoryLocator();
+        blockStore = rskTestContext.getBlockStore();
+        standardBlockchain = rskTestContext.getBlockchain();
+        repository = repositoryLocator.startTrackingAt(standardBlockchain.getBestBlock().getHeader());
+        signatureCache = spy(rskTestContext.getReceivedTxSignatureCache());
+        compositeEthereumListener = rskTestContext.getCompositeEthereumListener();
+        transactionPool = new TransactionPoolImpl(
+                rskTestContext.getRskSystemProperties(),
+                repositoryLocator,
+                rskTestContext.getBlockStore(),
+                rskTestContext.getBlockFactory(),
+                compositeEthereumListener,
+                rskTestContext.getTransactionExecutorFactory(),
+                signatureCache,
+                10,
+                100);
+        
+        transactionPool.processBest(standardBlockchain.getBestBlock());
+        
+        blockFactory = rskTestContext.getBlockFactory();
+        blockExecutor = rskTestContext.getBlockExecutor();
         minimumGasPriceCalculator = new MinimumGasPriceCalculator(Coin.ZERO);
         minerUtils = new MinerUtils();
     }
@@ -128,7 +165,7 @@ public class MinerServerTest extends ParameterizedNetworkUpgradeTest {
         BlockUnclesValidationRule unclesValidationRule = mock(BlockUnclesValidationRule.class);
         when(unclesValidationRule.isValid(any())).thenReturn(true);
         MinerClock clock = new MinerClock(true, Clock.systemUTC());
-        MinerServerImpl minerServer = makeMinerServer(mock(EthereumImpl.class), unclesValidationRule, clock, localTransactionPool);
+        MinerServer minerServer = makeMinerServer(mock(Ethereum.class), unclesValidationRule, clock, localTransactionPool);
 
         minerServer.buildBlockToMine(false);
         Block blockAtHeightOne = minerServer.getBlocksWaitingForPoW().entrySet().iterator().next().getValue();
@@ -149,7 +186,7 @@ public class MinerServerTest extends ParameterizedNetworkUpgradeTest {
         BlockUnclesValidationRule unclesValidationRule = mock(BlockUnclesValidationRule.class);
         when(unclesValidationRule.isValid(any())).thenReturn(true);
         MinerClock clock = new MinerClock(true, Clock.systemUTC());
-        MinerServerImpl minerServer = makeMinerServer(ethereumImpl, unclesValidationRule, clock);
+        MinerServer minerServer = makeMinerServer(ethereumImpl, unclesValidationRule, clock);
         try {
         byte[] extraData = ByteBuffer.allocate(4).putInt(1).array();
         minerServer.setExtraData(extraData);
@@ -446,7 +483,7 @@ public class MinerServerTest extends ParameterizedNetworkUpgradeTest {
         MinerServer minerServer = new MinerServerImpl(
                 config,
                 mock(EthereumImpl.class),
-                this.blockchain,
+                this.miningMainchainView,
                 null,
                 mock(ProofOfWorkRule.class),
                 builder,
@@ -469,12 +506,12 @@ public class MinerServerTest extends ParameterizedNetworkUpgradeTest {
 
     @Test
     public void secondBuildBlockToMineTurnsNotifyFlagOff() {
-        EthereumImpl ethereumImpl = mock(EthereumImpl.class);
+        Ethereum ethereum = mock(EthereumImpl.class);
 
         BlockUnclesValidationRule unclesValidationRule = mock(BlockUnclesValidationRule.class);
         when(unclesValidationRule.isValid(any())).thenReturn(true);
         MinerClock clock = new MinerClock(true, Clock.systemUTC());
-        MinerServer minerServer = makeMinerServer(ethereumImpl, unclesValidationRule, clock, transactionPool);
+        MinerServer minerServer = makeMinerServer(ethereum, unclesValidationRule, clock, transactionPool);
         try {
             minerServer.start();
 
@@ -494,8 +531,8 @@ public class MinerServerTest extends ParameterizedNetworkUpgradeTest {
 
     @Test
     public void submitTwoBitcoinBlocksAtSameTimeWithoutRateLimit() {
-        EthereumImpl ethereumImpl = mock(EthereumImpl.class);
-        when(ethereumImpl.addNewMinedBlock(any())).thenReturn(ImportResult.IMPORTED_BEST);
+        Ethereum ethereum = mock(EthereumImpl.class);
+        when(ethereum.addNewMinedBlock(any())).thenReturn(ImportResult.IMPORTED_BEST);
 
         BlockUnclesValidationRule unclesValidationRule = mock(BlockUnclesValidationRule.class);
         when(unclesValidationRule.isValid(any())).thenReturn(true);
@@ -503,7 +540,7 @@ public class MinerServerTest extends ParameterizedNetworkUpgradeTest {
         SubmissionRateLimitHandler submissionRateLimitHandler = mock(SubmissionRateLimitHandler.class);
         doReturn(false).when(submissionRateLimitHandler).isEnabled();
         doReturn(true).when(submissionRateLimitHandler).isSubmissionAllowed();
-        MinerServer minerServer = makeMinerServer(ethereumImpl, unclesValidationRule, clock, transactionPool, submissionRateLimitHandler);
+        MinerServer minerServer = makeMinerServer(ethereum, unclesValidationRule, clock, transactionPool, submissionRateLimitHandler);
 
         minerServer.buildBlockToMine(false);
         MinerWork work = minerServer.getWork();
@@ -651,6 +688,87 @@ public class MinerServerTest extends ParameterizedNetworkUpgradeTest {
         assertEquals("tincho is the king of mining".substring(0, clientExtraDataSize), new String(thirdItem));
     }
 
+    @Test
+    public void onBestBlockBuildBlockToMine() {
+
+        // prepare for miner server
+        Ethereum ethereum = mock(EthereumImpl.class);
+        when(ethereum.addNewMinedBlock(any())).thenReturn(ImportResult.IMPORTED_BEST);
+
+        BlockProcessor blockProcessor = mock(NodeBlockProcessor.class);
+        when(blockProcessor.hasBetterBlockToSync()).thenReturn(false);
+        
+        BlockUnclesValidationRule unclesValidationRule = mock(BlockUnclesValidationRule.class);
+        when(unclesValidationRule.isValid(any())).thenReturn(true);
+        
+        MinerClock clock = new MinerClock(true, Clock.systemUTC());
+        
+        // create miner server
+        MinerServer minerServer = spy(makeMinerServer(ethereum, blockProcessor, unclesValidationRule, clock, transactionPool));
+        minerServer.start();
+   
+        // create listener
+        MinerServerImpl.NewBlockTxListener listener = new MinerServerImpl.NewBlockTxListener(this.miningMainchainView, minerServer, blockProcessor);
+        
+        Block block = mock(Block.class);
+        when(block.getHeader()).thenReturn(this.miningMainchainView.get().get(0));
+        
+        // call best block
+        listener.onBestBlock(block, null);
+     
+        // assert the event was received and build block was called 
+        // it need to be 2 because the minerServer.start() calls it once
+        verify(minerServer, times(2)).buildBlockToMine(false);
+        
+        minerServer.stop();
+    }
+
+    @Test
+    public void onNewTxBuildBlockToMine() throws InterruptedException {
+
+        // prepare for miner server
+        Ethereum ethereum = spy(new EthereumImpl(null, null, compositeEthereumListener, standardBlockchain));
+        doReturn(ImportResult.IMPORTED_BEST).when(ethereum).addNewMinedBlock(any());
+        
+        BlockUnclesValidationRule unclesValidationRule = mock(BlockUnclesValidationRule.class);
+        when(unclesValidationRule.isValid(any())).thenReturn(true);
+        
+        MinerClock clock = new MinerClock(true, Clock.systemUTC());
+
+        BlockProcessor blockProcessor = mock(NodeBlockProcessor.class);
+        when(blockProcessor.hasBetterBlockToSync()).thenReturn(false);
+        
+        // create miner server
+        MinerServer minerServer = spy(makeMinerServer(ethereum, blockProcessor, unclesValidationRule, clock, transactionPool));
+        minerServer.start();
+        
+        // create the transaction
+        World world = new World((BlockChainImpl) standardBlockchain, blockStore, rskTestContext.getReceiptStore(), rskTestContext.getTrieStore(), repository, transactionPool, (Genesis)null);
+        
+        Account sender = new AccountBuilder(world).name("sender").balance(new Coin(BigInteger.valueOf(2000))).build();
+        Account receiver = new AccountBuilder(world).name("receiver").build();
+
+        Transaction tx = new TransactionBuilder()
+                .sender(sender)
+                .receiver(receiver)
+                .nonce(0)
+                .value(BigInteger.valueOf(1000))
+                .build();
+        
+        List<Transaction> txs = new ArrayList<>(Collections.singletonList(tx));
+        
+        // fire the event on ethereum that should send it to the listener inside the miner server
+        compositeEthereumListener.onPendingTransactionsReceived(txs);
+        
+        // assert the event was received and build block was called 
+        // it need to be 2 because the minerServer.start() calls it once
+        verify(minerServer, times(2)).buildBlockToMine(false);
+        
+        minerServer.stop();
+        
+    }
+    
+    
     private BtcBlock getMergedMiningBlockWithOnlyCoinbase(MinerWork work) {
         return getMergedMiningBlock(work, Collections.emptyList());
     }
@@ -691,18 +809,23 @@ public class MinerServerTest extends ParameterizedNetworkUpgradeTest {
         }
     }
 
-    private MinerServerImpl makeMinerServer(EthereumImpl ethereumImpl, BlockUnclesValidationRule unclesValidationRule,
+    private MinerServer makeMinerServer(Ethereum ethereum, BlockUnclesValidationRule unclesValidationRule,
                                         MinerClock clock) {
-        return makeMinerServer(ethereumImpl, unclesValidationRule, clock, transactionPool);
+        return makeMinerServer(ethereum, null, unclesValidationRule, clock, transactionPool);
     }
 
-    private MinerServerImpl makeMinerServer(EthereumImpl ethereumImpl, BlockUnclesValidationRule unclesValidationRule,
+    private MinerServer makeMinerServer(Ethereum ethereum, BlockUnclesValidationRule unclesValidationRule,
+            MinerClock clock, TransactionPool transactionPool) {
+        return makeMinerServer(ethereum, null, unclesValidationRule, clock, transactionPool);
+    }
+        
+    private MinerServer makeMinerServer(Ethereum ethereum, BlockProcessor blockProcessor, BlockUnclesValidationRule unclesValidationRule,
                                             MinerClock clock, TransactionPool transactionPool) {
         return new MinerServerImpl(
                 config,
-                ethereumImpl,
-                this.blockchain,
-                null,
+                ethereum,
+                this.miningMainchainView,
+                blockProcessor,
                 new ProofOfWorkRule(config).setFallbackMiningEnabled(false),
                 new BlockToMineBuilder(
                         config.getActivationConfig(),
@@ -727,13 +850,13 @@ public class MinerServerTest extends ParameterizedNetworkUpgradeTest {
         );
     }
 
-    private MinerServerImpl makeMinerServer(EthereumImpl ethereumImpl, BlockUnclesValidationRule unclesValidationRule,
+    private MinerServer makeMinerServer(Ethereum ethereum, BlockUnclesValidationRule unclesValidationRule,
                                             MinerClock clock, TransactionPool transactionPool,
                                             SubmissionRateLimitHandler submissionRateLimitHandler) {
         return new MinerServerImpl(
                 config,
-                ethereumImpl,
-                this.blockchain,
+                ethereum,
+                this.miningMainchainView,
                 null,
                 new ProofOfWorkRule(config).setFallbackMiningEnabled(false),
                 new BlockToMineBuilder(
