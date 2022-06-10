@@ -146,7 +146,6 @@ public class TransactionExecutor {
      * @return true if the transaction is valid and executed, false if the transaction is invalid
      */
     public boolean executeTransaction() {
-        logger.error("FEDE - EXECUTING TX");
         if (!this.init()) {
             return false;
         }
@@ -517,7 +516,7 @@ public class TransactionExecutor {
 
         if(isStorageRentEnabled()) {
             // pay storage rent
-            logger.trace("Paying storage rent. gas: {}", gasLeftover);
+            logger.error("Paying storage rent. gas: {}", gasLeftover);
 
             storageRentResult = storageRentManager.pay(gasLeftover, executionBlock.getTimestamp(),
                     (MutableRepositoryTracked) blockTrack, (MutableRepositoryTracked) transactionTrack,
@@ -525,7 +524,7 @@ public class TransactionExecutor {
 
             gasLeftover = storageRentResult.getGasAfterPayingRent();
 
-            logger.trace("Paid rent. gas: {}", gasLeftover);
+            logger.error("Paid rent. gas: {}", gasLeftover);
         }
 
         transactionTrack.commit();

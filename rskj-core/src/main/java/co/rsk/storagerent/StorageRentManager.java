@@ -57,7 +57,7 @@ public class StorageRentManager {
                 .map(trackedNode -> blockTrack.getRentedNode(trackedNode))
                 .collect(Collectors.toList());
 
-        LOGGER.trace("storage rent - rented nodes: {}, rollback nodes: {}",
+        LOGGER.error("storage rent - rented nodes: {}, rollback nodes: {}",
                 rentedNodes.size(), rollbackNodes.size());
 
         // calculate rent
@@ -90,7 +90,7 @@ public class StorageRentManager {
         StorageRentResult result = new StorageRentResult(rentedNodes, rollbackRentedNodes,
                 payableRent, rollbacksRent, gasAfterPayingRent);
 
-        LOGGER.trace("storage rent - paid rent: {}, payable rent: {}, rollbacks rent: {}",
+        LOGGER.error("storage rent - paid rent: {}, payable rent: {}, rollbacks rent: {}",
             result.paidRent(), result.getPayableRent(), result.getRollbacksRent());
 
         return result;
