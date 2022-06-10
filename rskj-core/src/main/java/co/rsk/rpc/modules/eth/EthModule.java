@@ -38,6 +38,7 @@ import org.ethereum.rpc.CallArguments;
 import org.ethereum.rpc.TypeConverter;
 import org.ethereum.rpc.converters.CallArgumentsToByteArray;
 import org.ethereum.rpc.exception.RskJsonRpcRequestException;
+import org.ethereum.vm.GasCost;
 import org.ethereum.vm.PrecompiledContracts;
 import org.ethereum.vm.program.ProgramResult;
 import org.slf4j.Logger;
@@ -175,6 +176,10 @@ public class EthModule
         long estimatedGas = reversibleExecutionResult.getMovedRemainingGasToChild() ?
                 reversibleExecutionResult.getGasUsed() + reversibleExecutionResult.getDeductedRefund() :
                 reversibleExecutionResult.getMaxGasUsed();
+
+        if (reversibleExecutionResult.isCallWithValuePerformed()) {
+            estimatedGas += GasCost.STIPEND_CALL;
+        }
 
         return TypeConverter.toQuantityJsonHex(estimatedGas);
     }
