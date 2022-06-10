@@ -146,6 +146,7 @@ public class TransactionExecutor {
      * @return true if the transaction is valid and executed, false if the transaction is invalid
      */
     public boolean executeTransaction() {
+        logger.error("FEDE - EXECUTING TX");
         if (!this.init()) {
             return false;
         }
